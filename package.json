@@ -1,0 +1,59 @@
+{
+  "name": "vector-autocomplete",
+  "version": "0.1.0",
+  "description": "Vector autocomplete powered by transformer embeddings and cosine similarity — search by meaning, not keywords. ",
+  "author": "Aditya Dutta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adidutta/vector-autocomplete.git"
+  },
+  "homepage": "https://github.com/adidutta/vector-autocomplete",
+  "keywords": [
+    "vector",
+    "autocomplete"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "preview": "vite preview"
+  },
+  "peerDependencies": {
+    "@emotion/react": ">=11",
+    "@emotion/styled": ">=11",
+    "@huggingface/transformers": ">=3",
+    "@mui/material": ">=6",
+    "hnswlib-wasm": ">=0.8",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@huggingface/transformers": "^3.4.2",
+    "@mui/material": "^6.4.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "hnswlib-wasm": "^0.8.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.7",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.6.0"
+  }
+}
