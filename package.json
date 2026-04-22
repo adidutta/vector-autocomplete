@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adidutta/vector-autocomplete.git"
+    "url": "git+https://github.com/adidutta/vector-autocomplete.git"
   },
   "homepage": "https://github.com/adidutta/vector-autocomplete",
   "keywords": [
