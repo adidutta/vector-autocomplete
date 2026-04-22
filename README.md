@@ -8,6 +8,20 @@ Typing _"AI"_ surfaces _"Machine learning model training"_ and _"Neural network 
 
 ---
 
+## Installation
+
+```bash
+npm install vector-autocomplete
+```
+
+Install the peer dependencies if you don't already have them:
+
+```bash
+npm install react react-dom @mui/material @emotion/react @emotion/styled @huggingface/transformers hnswlib-wasm
+```
+
+---
+
 ## How it works
 
 When the user types, the query is encoded into a 384-dimensional vector by [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) — a small, fast sentence-embedding model. All candidate options are embedded the same way (and cached). Options are then ranked by [cosine similarity](https://en.wikipedia.org/wiki/Cosine_similarity) to the query and the top-K are shown.
@@ -65,12 +79,12 @@ The model (~23 MB, quantized ONNX) is downloaded once from the HuggingFace CDN a
 
 ---
 
-## Getting started
+## Getting started (local development)
 
 **Requirements:** Node.js 18+
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/adityadutta/vector-autocomplete
 cd vector-autocomplete
 npm install
 npm run dev
@@ -83,7 +97,7 @@ Open `http://localhost:5173`. The model downloads on first use and is cached by 
 ## Usage
 
 ```tsx
-import VectorAutocomplete from './src/components/VectorAutocomplete'
+import VectorAutocomplete from 'vector-autocomplete'
 
 const FOODS = [
   'Spaghetti carbonara',
