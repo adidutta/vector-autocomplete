@@ -2,7 +2,7 @@
 
 ## v0.1.0 — Initial Release
 
-**April 18, 2026**
+**April 22, 2026**
 
 ### Overview
 
