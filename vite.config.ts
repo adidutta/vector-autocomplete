@@ -6,6 +6,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react(), wasm(), topLevelAwait()],
+  base: './',
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
