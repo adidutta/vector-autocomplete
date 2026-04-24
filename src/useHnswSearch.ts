@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import HnswWorker from './workers/hnsw.worker.ts?worker&inline'
 
 export type HnswStatus = 'idle' | 'indexing' | 'ready' | 'error'
 
@@ -26,10 +27,7 @@ export function useHnswSearch(
     if (!enabled) return
 
     setStatus('indexing')
-    const worker = new Worker(
-      new URL('./workers/hnsw.worker.ts', import.meta.url),
-      { type: 'module' },
-    )
+    const worker = new HnswWorker()
     workerRef.current = worker
 
     worker.onmessage = (e) => {
