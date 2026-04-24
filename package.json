@@ -11,7 +11,15 @@
   "homepage": "https://github.com/adidutta/vector-autocomplete",
   "keywords": [
     "vector",
-    "autocomplete"
+    "autocomplete",
+    "semantic-search",
+    "embeddings",
+    "hnsw",
+    "transformer",
+    "react",
+    "vector-search",
+    "nlp",
+    "cosine-similarity"
   ],
   "type": "module",
   "main": "./dist/index.js",
