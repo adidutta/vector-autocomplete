@@ -17,6 +17,8 @@ interface VectorAutocompleteProps {
   topK?: number
   threshold?: number
   model?: ModelId
+  /** Custom embedding function. When provided, skips HuggingFace model loading entirely. */
+  embedFn?: (text: string) => Promise<number[]>
   searchMode?: SearchMode
   onChange?: (value: string | null) => void
 }
@@ -49,10 +51,14 @@ export default function VectorAutocomplete({
   topK = 8,
   threshold = 0,
   model = DEFAULT_MODEL,
+  embedFn,
   searchMode = { type: 'client' },
   onChange,
 }: VectorAutocompleteProps) {
-  const { embedQuery, embedPassage, status: modelStatus } = useEmbedder(model)
+  const { embedQuery: hfEmbedQuery, embedPassage: hfEmbedPassage, status: hfStatus } = useEmbedder(model)
+  const embedQuery = embedFn ?? hfEmbedQuery
+  const embedPassage = embedFn ?? hfEmbedPassage
+  const modelStatus = embedFn ? 'ready' as const : hfStatus
   const getEmbedding = useOptionEmbeddings(options, embedPassage)
 
   // Server mode — hook always called, only active when mode matches
@@ -167,7 +173,7 @@ export default function VectorAutocomplete({
   return (
     <Box sx={{ width: '100%' }}>
       <Tooltip
-        title={`${model} · ${modeLabel[searchMode.type]}`}
+        title={`${embedFn ? 'custom embedFn' : model} · ${modeLabel[searchMode.type]}`}
         placement="top-start"
         arrow
       >

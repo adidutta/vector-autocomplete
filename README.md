@@ -126,9 +126,146 @@ function App() {
 | `label` | `string` | `'Search'` | Text field label |
 | `topK` | `number` | `8` | Maximum number of results to show |
 | `threshold` | `number` | `0` | Minimum cosine similarity score to include (range `0`–`1`). Applies only to `client` mode |
-| `model` | `ModelId` | `'Xenova/all-mpnet-base-v2'` | Embedding model (see [Choosing a model](#choosing-a-different-model)) |
+| `model` | `ModelId` | `'Xenova/all-mpnet-base-v2'` | HuggingFace embedding model — see [In-browser models](#in-browser-models-huggingface). Ignored when `embedFn` is set |
+| `embedFn` | `(text: string) => Promise<number[]>` | — | Custom embedding function — bypasses HuggingFace entirely. See [Custom embedding function](#custom-embedding-function) |
 | `searchMode` | `SearchMode` | `{ type: 'client' }` | Search backend — see [Search modes](#search-modes) |
 | `onChange` | `(value: string \| null) => void` | — | Called when the user selects an option |
+
+---
+
+## Embedding
+
+The component needs to turn text into vectors. There are two ways to provide that: the built-in HuggingFace models that run directly in the browser, or your own embedding function for when you need more control or HuggingFace is unavailable.
+
+### In-browser models (HuggingFace)
+
+By default the component downloads and runs a quantized ONNX sentence-embedding model via [`@huggingface/transformers`](https://github.com/huggingface/transformers.js). No server, no API key — everything runs in a browser Web Worker.
+
+Only **feature-extraction** models work here. Text-generation models (Llama, Gemma, etc.) produce text, not vectors, and are not compatible. Models must have ONNX weights on HuggingFace Hub — the `Xenova` and `onnx-community` namespaces are the primary sources.
+
+| Model | Size | Dimensions | Notes |
+|---|---|---|---|
+| `Xenova/all-MiniLM-L6-v2` | 23 MB | 384 | Fastest |
+| `Xenova/all-mpnet-base-v2` | 85 MB | 768 | **Default** — best accuracy/size balance |
+| `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | 118 MB | 384 | Multilingual |
+| `Xenova/bge-small-en-v1.5` | 50 MB | 384 | BGE small, English |
+| `Xenova/bge-large-en-v1.5` | 250 MB | 384 | BGE large, highest accuracy |
+
+Pass the model ID via the `model` prop:
+
+```tsx
+// Fast, 23 MB — good for most use cases
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/all-MiniLM-L6-v2"
+/>
+
+// Multilingual — supports 50+ languages
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
+/>
+
+// Highest accuracy, 250 MB
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/bge-large-en-v1.5"
+/>
+```
+
+> **Important:** when using `hnsw` mode with a pre-built index, the `dim` field must match the embedding model's output dimension. If you switch models you must rebuild the index.
+
+---
+
+### Custom embedding function
+
+If HuggingFace is blocked (e.g. corporate firewall) or you already have an embedding service, pass `embedFn` instead of `model`. The prop accepts any async function that takes a string and returns a `number[]` vector.
+
+```tsx
+import { useCallback } from 'react'
+import VectorAutocomplete from 'vector-autocomplete'
+
+function App() {
+  const embedFn = useCallback(async (text: string): Promise<number[]> => {
+    const res = await fetch('https://embeddings.internal.example.com/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    const { vector } = await res.json()
+    return vector
+  }, [])
+
+  return (
+    <VectorAutocomplete
+      options={MY_OPTIONS}
+      embedFn={embedFn}
+    />
+  )
+}
+```
+
+> **Note:** Wrap `embedFn` in `useCallback` (or define it outside the component) to avoid re-triggering effects on every render. All vectors returned must have the same dimension. If you use `hnsw` mode with a pre-built index, `dim` must match the dimension your embedding service produces.
+
+#### Using Ollama (local, no API key)
+
+[Ollama](https://ollama.com) runs embedding models locally — no account, no API key, no data leaving the machine. This is the best option for air-gapped or restricted corporate environments where the HuggingFace CDN is blocked.
+
+**1. Install Ollama**
+
+```bash
+brew install ollama        # macOS
+# or download from https://ollama.com/download
+```
+
+**2. Start Ollama with CORS enabled**
+
+The browser needs cross-origin access to the local Ollama server:
+
+```bash
+OLLAMA_ORIGINS=* ollama serve
+```
+
+**3. Pull an embedding model**
+
+| Model | Dimensions | Command |
+|---|---|---|
+| `nomic-embed-text` | 768 | `ollama pull nomic-embed-text` |
+| `all-minilm` | 384 | `ollama pull all-minilm` |
+| `mxbai-embed-large` | 1024 | `ollama pull mxbai-embed-large` |
+
+```bash
+ollama pull nomic-embed-text
+```
+
+**4. Use it with `embedFn`**
+
+```tsx
+import { useCallback } from 'react'
+import VectorAutocomplete from 'vector-autocomplete'
+
+function App() {
+  const embedFn = useCallback(async (text: string): Promise<number[]> => {
+    const res = await fetch('http://localhost:11434/api/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'nomic-embed-text', prompt: text }),
+    })
+    if (!res.ok) throw new Error(`Ollama error: ${res.status}`)
+    const { embedding } = await res.json()
+    return embedding
+  }, [])
+
+  return (
+    <VectorAutocomplete
+      options={MY_OPTIONS}
+      embedFn={embedFn}
+    />
+  )
+}
+```
+
+> **Tip:** If you switch Ollama models, make sure all options and queries use the same model. Vectors from different models are not comparable.
 
 ---
 
@@ -326,6 +463,16 @@ Serve the `.hnsw` binary from your CDN or static host and load it via `indexUrl`
 
 ---
 
+## Notes on performance
+
+- **`client` mode** runs on the main thread. For lists above ~1 k items, consider switching to `hnsw` mode to keep the UI responsive.
+- **HNSW index build time** scales with the number of options and embedding speed. For the runtime-build sub-mode, the component shows "Building HNSW index…" while the index is being constructed.
+- Options are re-embedded and the HNSW index is rebuilt if the `options` array reference changes. Stabilise the reference with `useMemo` or a module-level constant.
+- The `threshold` prop filters weak matches in `client` mode. A value of `0.15`–`0.25` removes unrelated noise while keeping semantically close results.
+- For `server` mode, ensure your endpoint sets `Access-Control-Allow-Origin` appropriately if it lives on a different origin.
+
+---
+
 ## Project structure
 
 ```
@@ -346,60 +493,6 @@ vector-autocomplete/
     └── components/
         └── VectorAutocomplete.tsx   # The component (all three modes)
 ```
-
----
-
-## Choosing a different model
-
-Only **feature-extraction** (sentence embedding) models work here — text-generation models like Llama or Gemma produce text, not vectors, so they are not compatible. The model must also have ONNX weights published on HuggingFace Hub (the `Xenova` and `onnx-community` namespaces are the primary sources for pre-converted ONNX models).
-
-Available models:
-
-| Model | Size | Dimensions | Notes |
-|---|---|---|---|
-| `Xenova/all-MiniLM-L6-v2` | 23 MB | 384 | Fastest |
-| `Xenova/all-mpnet-base-v2` | 85 MB | 768 | **Default** — best accuracy/size balance |
-| `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | 118 MB | 384 | Multilingual |
-| `Xenova/bge-small-en-v1.5` | 50 MB | 384 | BGE small, English |
-| `Xenova/bge-large-en-v1.5` | 250 MB | 384 | BGE large, highest accuracy |
-
-Pass the model ID via the `model` prop:
-
-```tsx
-import VectorAutocomplete from 'vector-autocomplete'
-
-// Fast, 23 MB — good for most use cases
-<VectorAutocomplete
-  options={MY_OPTIONS}
-  model="Xenova/all-MiniLM-L6-v2"
-/>
-
-// Multilingual — supports 50+ languages
-<VectorAutocomplete
-  options={MY_OPTIONS}
-  model="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
-/>
-
-// Highest accuracy, 250 MB
-<VectorAutocomplete
-  options={MY_OPTIONS}
-  model="Xenova/bge-large-en-v1.5"
-/>
-```
-
-Or use the model selector in the demo to try them interactively.
-
-> **Important:** when using `hnsw` mode with a pre-built index, the `dim` field must match the embedding model's output dimension. If you switch models you must rebuild the index.
-
----
-
-## Notes on performance
-
-- **`client` mode** runs on the main thread. For lists above ~1 k items, consider switching to `hnsw` mode to keep the UI responsive.
-- **HNSW index build time** scales with the number of options and embedding speed. For the runtime-build sub-mode, the component shows "Building HNSW index…" while the index is being constructed.
-- Options are re-embedded and the HNSW index is rebuilt if the `options` array reference changes. Stabilise the reference with `useMemo` or a module-level constant.
-- The `threshold` prop filters weak matches in `client` mode. A value of `0.15`–`0.25` removes unrelated noise while keeping semantically close results.
-- For `server` mode, ensure your endpoint sets `Access-Control-Allow-Origin` appropriately if it lives on a different origin.
 
 ---
 
