@@ -363,7 +363,31 @@ Available models:
 | `Xenova/bge-small-en-v1.5` | 50 MB | 384 | BGE small, English |
 | `Xenova/bge-large-en-v1.5` | 250 MB | 384 | BGE large, highest accuracy |
 
-Pass the model ID via the `model` prop or use the model selector in the demo.
+Pass the model ID via the `model` prop:
+
+```tsx
+import VectorAutocomplete from 'vector-autocomplete'
+
+// Fast, 23 MB — good for most use cases
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/all-MiniLM-L6-v2"
+/>
+
+// Multilingual — supports 50+ languages
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/paraphrase-multilingual-MiniLM-L12-v2"
+/>
+
+// Highest accuracy, 250 MB
+<VectorAutocomplete
+  options={MY_OPTIONS}
+  model="Xenova/bge-large-en-v1.5"
+/>
+```
+
+Or use the model selector in the demo to try them interactively.
 
 > **Important:** when using `hnsw` mode with a pre-built index, the `dim` field must match the embedding model's output dimension. If you switch models you must rebuild the index.
 
