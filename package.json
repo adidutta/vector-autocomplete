@@ -1,6 +1,6 @@
 {
   "name": "vector-autocomplete",
-  "version": "0.1.6",
+  "version": "0.2.6",
   "description": "Vector autocomplete powered by transformer embeddings and cosine similarity — search by meaning, not keywords. ",
   "author": "Aditya Dutta",
   "license": "MIT",
@@ -53,6 +53,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@huggingface/transformers": "^3.4.2",
+    "@mui/icons-material": "^6.5.0",
     "@mui/material": "^6.4.0",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
@@ -60,6 +61,7 @@
     "hnswlib-wasm": "^0.8.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
     "typescript": "^6.0.3",
     "vite": "^6.0.7",
     "vite-plugin-top-level-await": "^1.6.0",
