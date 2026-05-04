@@ -1,6 +1,6 @@
 # Vector Autocomplete
 
-A React component that replaces the conventional substring filter inside [MUI Autocomplete](https://mui.com/material-ui/react-autocomplete/) with **vector similarity search** powered by a real language model running entirely in the browser — no server, no API key, no data leaving the device.
+A React component that replaces the conventional substring filter inside [MUI Autocomplete](https://mui.com/material-ui/react-autocomplete/) with **vector similarity search** powered by a real language model. By default everything runs entirely in the browser — no server, no API key, no data leaving the device. You can also plug in a server-side embedding service (Ollama, OpenAI, your own endpoint) when you need more control.
 
 Typing _"AI"_ surfaces _"Machine learning model training"_ and _"Neural network architecture design"_. Typing _"deploy containers"_ surfaces _"Kubernetes container orchestration"_ and _"Docker image build pipeline"_. Things that would never match with a `string.includes()` filter.
 
@@ -20,11 +20,20 @@ Install the peer dependencies if you don't already have them:
 npm install react react-dom @mui/material @emotion/react @emotion/styled @huggingface/transformers hnswlib-wasm
 ```
 
+> **Note:** `@huggingface/transformers` is only required when using the default in-browser HuggingFace models. `hnswlib-wasm` is only required for `hnsw` search mode. If you supply a custom `embedFn` and use `client` or `server` search mode, you can omit both.
+
 ---
 
 ## How it works
 
-When the user types, the query is encoded into a 384-dimensional vector by [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) — a small, fast sentence-embedding model. All candidate options are embedded the same way (and cached). Options are then ranked by [cosine similarity](https://en.wikipedia.org/wiki/Cosine_similarity) to the query and the top-K are shown.
+When the user types, the query is encoded into a fixed-length numeric vector (an embedding). Candidate options are embedded the same way and cached. Options are then ranked by [cosine similarity](https://en.wikipedia.org/wiki/Cosine_similarity) to the query and the top-K are shown.
+
+There are two independent dimensions you control:
+
+- **Embedding source** — where the text-to-vector conversion happens: in the browser (HuggingFace ONNX model, default) or on a server (Ollama, OpenAI, or any custom endpoint via the `embedFn` prop).
+- **Search mode** — where the nearest-neighbour lookup happens: in the browser (linear scan or HNSW Web Worker) or on your server (ANN via REST).
+
+By default both happen in the browser with [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
 
 ### What is a feature extraction vector?
 
@@ -45,14 +54,15 @@ It hits the right trade-offs for in-browser use:
 
 The model was distilled from larger transformers specifically to be fast and small while retaining strong vector understanding. For an autocomplete dropdown that needs to respond within a keystroke debounce window, it's the practical default.
 
+**Default (in-browser embedding + client search):**
 ```
 user types "spicy noodles"
        │
        ▼
-  embed("spicy noodles")  →  vector A          (via all-MiniLM-L6-v2, ONNX/WASM)
+  embed("spicy noodles")  →  vector A          (browser: all-MiniLM-L6-v2, ONNX/WASM)
        │
        ▼
-  embed(each option)      →  vector B₁…Bₙ     (cached after first query)
+  embed(each option)      →  vector B₁…Bₙ     (browser: cached after first query)
        │
        ▼
   cosine_similarity(A, Bᵢ) for each option
@@ -61,7 +71,21 @@ user types "spicy noodles"
   sort descending, take topK                   (shown in MUI dropdown)
 ```
 
-The model (~23 MB, quantized ONNX) is downloaded once from the HuggingFace CDN and cached in the browser. All subsequent uses are instant and offline.
+**With server-side embedding (`embedFn` + `server` search mode):**
+```
+user types "spicy noodles"
+       │
+       ▼
+  embedFn("spicy noodles") → POST /embed       (your embedding service)
+       │                  ← vector A
+       ▼
+  POST /search  { vector: A, k: 8 }            (your search endpoint)
+       │       ← { results: [...] }
+       ▼
+  show top-K results                           (shown in MUI dropdown)
+```
+
+The default model (~23 MB, quantized ONNX) is downloaded once from the HuggingFace CDN and cached in the browser. All subsequent uses are instant and offline.
 
 ---
 
@@ -126,8 +150,8 @@ function App() {
 | `label` | `string` | `'Search'` | Text field label |
 | `topK` | `number` | `8` | Maximum number of results to show |
 | `threshold` | `number` | `0` | Minimum cosine similarity score to include (range `0`–`1`). Applies only to `client` mode |
-| `model` | `ModelId` | `'Xenova/all-mpnet-base-v2'` | HuggingFace embedding model — see [In-browser models](#in-browser-models-huggingface). Ignored when `embedFn` is set |
-| `embedFn` | `(text: string) => Promise<number[]>` | — | Custom embedding function — bypasses HuggingFace entirely. See [Custom embedding function](#custom-embedding-function) |
+| `model` | `ModelId` | `'Xenova/all-mpnet-base-v2'` | HuggingFace in-browser model — see [In-browser embedding](#in-browser-embedding-huggingface). Ignored when `embedFn` is set |
+| `embedFn` | `(text: string) => Promise<number[]>` | — | Server-side embedding function — bypasses HuggingFace entirely. See [Server-side embedding](#server-side-embedding) |
 | `searchMode` | `SearchMode` | `{ type: 'client' }` | Search backend — see [Search modes](#search-modes) |
 | `onChange` | `(value: string \| null) => void` | — | Called when the user selects an option |
 
@@ -135,9 +159,16 @@ function App() {
 
 ## Embedding
 
-The component needs to turn text into vectors. There are two ways to provide that: the built-in HuggingFace models that run directly in the browser, or your own embedding function for when you need more control or HuggingFace is unavailable.
+The component needs to convert text into vectors. You choose where that conversion happens:
 
-### In-browser models (HuggingFace)
+| Source | How | Use when |
+|---|---|---|
+| **In-browser (HuggingFace)** | ONNX model runs in a browser Web Worker | Default — no server required |
+| **Server-side (Ollama / custom)** | Your `embedFn` calls a local or remote API | HuggingFace CDN blocked, need a specific model, or want to share embeddings with other services |
+
+The embedding source is independent of the [search mode](#search-modes). You can, for example, use an Ollama embedding function with `client` search mode (vectors stay in the browser), or pair a custom `embedFn` with `server` search mode (full server-side pipeline).
+
+### In-browser embedding (HuggingFace)
 
 By default the component downloads and runs a quantized ONNX sentence-embedding model via [`@huggingface/transformers`](https://github.com/huggingface/transformers.js). No server, no API key — everything runs in a browser Web Worker.
 
@@ -177,9 +208,9 @@ Pass the model ID via the `model` prop:
 
 ---
 
-### Custom embedding function
+### Server-side embedding
 
-If HuggingFace is blocked (e.g. corporate firewall) or you already have an embedding service, pass `embedFn` instead of `model`. The prop accepts any async function that takes a string and returns a `number[]` vector.
+If HuggingFace is blocked (e.g. corporate firewall), you need a specific model not available on HuggingFace Hub, or you want the embedding to happen on a server, pass `embedFn` instead of `model`. The prop accepts any async function that takes a string and returns a `number[]` vector.
 
 ```tsx
 import { useCallback } from 'react'
@@ -207,7 +238,7 @@ function App() {
 
 > **Note:** Wrap `embedFn` in `useCallback` (or define it outside the component) to avoid re-triggering effects on every render. All vectors returned must have the same dimension. If you use `hnsw` mode with a pre-built index, `dim` must match the dimension your embedding service produces.
 
-#### Using Ollama (local, no API key)
+#### Ollama (local, no API key)
 
 [Ollama](https://ollama.com) runs embedding models locally — no account, no API key, no data leaving the machine. This is the best option for air-gapped or restricted corporate environments where the HuggingFace CDN is blocked.
 
@@ -267,6 +298,39 @@ function App() {
 
 > **Tip:** If you switch Ollama models, make sure all options and queries use the same model. Vectors from different models are not comparable.
 
+#### Combining server-side embedding with server search mode
+
+When you pass both `embedFn` and `searchMode={{ type: 'server', ... }}`, the full pipeline is server-side: the component calls `embedFn` to embed the query, then posts the resulting vector to your search endpoint. Raw query text never touches your search server.
+
+```tsx
+import { useCallback } from 'react'
+import VectorAutocomplete from 'vector-autocomplete'
+
+function App() {
+  const embedFn = useCallback(async (text: string): Promise<number[]> => {
+    const res = await fetch('https://embed.internal.example.com/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer <token>' },
+      body: JSON.stringify({ text }),
+    })
+    const { embedding } = await res.json()
+    return embedding
+  }, [])
+
+  return (
+    <VectorAutocomplete
+      options={[]}   // not used in server search mode
+      embedFn={embedFn}
+      searchMode={{
+        type: 'server',
+        endpoint: 'https://search.internal.example.com/search',
+        headers: { Authorization: 'Bearer <token>' },
+      }}
+    />
+  )
+}
+```
+
 ---
 
 ## Search modes
@@ -275,11 +339,13 @@ The `searchMode` prop controls how results are ranked. Switch modes based on dat
 
 ### Comparison
 
-| Mode | Dataset size | Privacy | Infrastructure | Latency |
-|---|---|---|---|---|
-| `client` | Up to ~5 k | Full — nothing leaves the browser | None | ~10–50 ms |
-| `server` | Millions | Query vector sent to your server | Vector DB required | ~50–150 ms (network) |
-| `hnsw` | Up to ~100 k | Full — runs in a Web Worker | None | ~5–20 ms after index loads |
+| Mode | Dataset size | Infrastructure | Latency |
+|---|---|---|---|
+| `client` | Up to ~5 k | None | ~10–50 ms |
+| `server` | Millions | Vector DB required | ~50–150 ms (network) |
+| `hnsw` | Up to ~100 k | None | ~5–20 ms after index loads |
+
+> **Privacy note:** With the default in-browser HuggingFace embedding, nothing leaves the device in `client` and `hnsw` modes. In `server` mode the query vector (not raw text) is sent to your server. If you use a server-side `embedFn`, the query text is sent to that embedding service regardless of search mode.
 
 ---
 
@@ -298,9 +364,11 @@ All search happens in the browser. Options are embedded once and cached. Every q
 
 ---
 
-### `server` — hybrid server-side ANN
+### `server` — server-side ANN
 
-The query is embedded in the browser, then the resulting vector is sent to your server via a single POST request. The server performs approximate nearest-neighbour (ANN) lookup over pre-computed embeddings and returns the top-K labels.
+The query vector is sent to your server via a single POST request. The server performs approximate nearest-neighbour (ANN) lookup over pre-computed embeddings and returns the top-K labels.
+
+By default the query is embedded in the browser before being sent. To move embedding to the server too, pair this mode with a server-side `embedFn` — the function is called first, then the resulting vector is forwarded to the search endpoint.
 
 ```tsx
 <VectorAutocomplete
