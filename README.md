@@ -142,6 +142,8 @@ function App() {
 }
 ```
 
+See the **[`examples/`](./examples/)** directory for complete, copy-pasteable examples covering OpenAI embeddings, Ollama, server mode, HNSW pre-built indexes, form integration, and more.
+
 ### Props
 
 | Prop | Type | Default | Description |
