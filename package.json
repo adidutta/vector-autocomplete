@@ -1,6 +1,6 @@
 {
   "name": "vector-autocomplete",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Vector autocomplete powered by transformer embeddings and cosine similarity — search by meaning, not keywords. ",
   "author": "Aditya Dutta",
   "license": "MIT",

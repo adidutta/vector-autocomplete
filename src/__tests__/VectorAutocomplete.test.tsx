@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import React from 'react'
 
 // Mock HuggingFace so useEmbedder never tries to load a real model
 vi.mock('@huggingface/transformers', () => ({
