@@ -148,7 +148,7 @@ describe('useHnswSearch', () => {
     })
 
     await searchPromise
-    expect(caughtError?.message).toBe('index corrupted')
+    expect((caughtError as Error | null)?.message).toBe('index corrupted')
   })
 
   it('terminates the worker on unmount', () => {
