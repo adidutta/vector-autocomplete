@@ -24,6 +24,28 @@ npm install react react-dom @mui/material @emotion/react @emotion/styled @huggin
 
 ---
 
+## Choose your configuration
+
+Two independent choices determine your setup:
+
+- **Embedding** — where text → vector conversion runs: in the browser (default, no server) or on your server via `embedFn`
+- **Search** — where the nearest-neighbour lookup runs: in the browser (`client` or `hnsw`) or on your server (`server`)
+
+Find your row and jump to the linked sections — **you can ignore everything else**.
+
+| Embedding | Search | Dataset | Infrastructure | Query latency | Read |
+|---|---|---|---|---|---|
+| In-browser (default) | `client` (default) | ≤ 5 k | None | ~10–50 ms | [Usage](#usage) — no extra config |
+| In-browser (default) | `hnsw` | ≤ 100 k | None | ~5–20 ms | [In-browser embedding](#in-browser-embedding-huggingface) · [`hnsw` mode](#hnsw--hnsw-web-worker) |
+| In-browser (default) | `server` | Millions | Vector DB | ~50–150 ms | [In-browser embedding](#in-browser-embedding-huggingface) · [`server` mode](#server--server-side-ann) |
+| Server (`embedFn`) | `client` | ≤ 5 k | Embedding service | ~10–50 ms + embed RTT | [Server-side embedding](#server-side-embedding) |
+| Server (`embedFn`) | `hnsw` | ≤ 100 k | Embedding service | ~5–20 ms + embed RTT | [Server-side embedding](#server-side-embedding) · [`hnsw` mode](#hnsw--hnsw-web-worker) |
+| Server (`embedFn`) | `server` | Millions | Embedding service + Vector DB | ~50–150 ms | [Server-side embedding](#server-side-embedding) · [`server` mode](#server--server-side-ann) |
+
+> **Privacy:** with default in-browser embedding, nothing leaves the device in `client` and `hnsw` modes. In `server` mode the query vector is sent to your server. With a custom `embedFn`, the query text is sent to your embedding service regardless of search mode.
+
+---
+
 ## How it works
 
 When the user types, the query is encoded into a fixed-length numeric vector (an embedding). Candidate options are embedded the same way and cached. Options are then ranked by [cosine similarity](https://en.wikipedia.org/wiki/Cosine_similarity) to the query and the top-K are shown.
@@ -33,7 +55,7 @@ There are two independent dimensions you control:
 - **Embedding source** — where the text-to-vector conversion happens: in the browser (HuggingFace ONNX model, default) or on a server (Ollama, OpenAI, or any custom endpoint via the `embedFn` prop).
 - **Search mode** — where the nearest-neighbour lookup happens: in the browser (linear scan or HNSW Web Worker) or on your server (ANN via REST).
 
-By default both happen in the browser with [`all-MiniLM-L6-v2`](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
+By default both happen in the browser with [`all-mpnet-base-v2`](https://huggingface.co/sentence-transformers/all-mpnet-base-v2).
 
 ### What is a feature extraction vector?
 
@@ -41,25 +63,25 @@ Feature extraction (also called sentence embedding) is the process of turning a 
 
 This is why typing _"AI"_ surfaces _"Machine learning"_ — their vectors are close even though the strings share no characters. A plain `string.includes()` filter has no concept of meaning; it can only match substrings.
 
-### Why `all-MiniLM-L6-v2`?
+### Choosing a model
 
-It hits the right trade-offs for in-browser use:
+The default is `all-mpnet-base-v2` (85 MB, 768 dims) — the best accuracy/size balance for most use cases. Switch to `all-MiniLM-L6-v2` (23 MB, 384 dims) if you need a faster cold-start or are in a bandwidth-constrained environment.
 
-| | `all-MiniLM-L6-v2` | larger models |
+| | `all-MiniLM-L6-v2` | `all-mpnet-base-v2` (default) |
 |---|---|---|
-| Size | 23 MB (quantized ONNX) | 85 MB – several GB |
-| Vector dimensions | 384 | 768 – 4096 |
-| Latency (WASM) | ~10–30 ms per query | 100 ms – seconds |
-| Accuracy | Good for most use cases | Marginally better |
+| Size | 23 MB (quantized ONNX) | 85 MB (quantized ONNX) |
+| Vector dimensions | 384 | 768 |
+| Latency (WASM) | ~10–30 ms per query | ~20–60 ms per query |
+| Accuracy | Good for most use cases | Better |
 
-The model was distilled from larger transformers specifically to be fast and small while retaining strong vector understanding. For an autocomplete dropdown that needs to respond within a keystroke debounce window, it's the practical default.
+Both models were distilled from larger transformers to be fast enough for in-browser use. `all-MiniLM-L6-v2` prioritises size and speed; `all-mpnet-base-v2` produces richer embeddings that better capture semantic nuance.
 
 **Default (in-browser embedding + client search):**
 ```
 user types "spicy noodles"
        │
        ▼
-  embed("spicy noodles")  →  vector A          (browser: all-MiniLM-L6-v2, ONNX/WASM)
+  embed("spicy noodles")  →  vector A          (browser: all-mpnet-base-v2, ONNX/WASM)
        │
        ▼
   embed(each option)      →  vector B₁…Bₙ     (browser: cached after first query)
@@ -85,7 +107,7 @@ user types "spicy noodles"
   show top-K results                           (shown in MUI dropdown)
 ```
 
-The default model (~23 MB, quantized ONNX) is downloaded once from the HuggingFace CDN and cached in the browser. All subsequent uses are instant and offline.
+The default model (~85 MB, quantized ONNX) is downloaded once from the HuggingFace CDN and cached in the browser. All subsequent uses are instant and offline.
 
 ---
 
@@ -95,7 +117,7 @@ The default model (~23 MB, quantized ONNX) is downloaded once from the HuggingFa
 |---|---|
 | UI | [MUI](https://mui.com/) (`@mui/material`) |
 | Inference | [`@huggingface/transformers`](https://github.com/huggingface/transformers.js) (Transformers.js v3) |
-| Model | [`Xenova/all-MiniLM-L6-v2`](https://huggingface.co/Xenova/all-MiniLM-L6-v2) — 23 MB quantized ONNX (HuggingFace Hub) |
+| Model | [`Xenova/all-mpnet-base-v2`](https://huggingface.co/Xenova/all-mpnet-base-v2) — 85 MB quantized ONNX (HuggingFace Hub) |
 | ANN index | [`hnswlib-wasm`](https://github.com/yoshoku/hnswlib-wasm) — HNSW in WebAssembly |
 | Runtime | WebAssembly (ONNX Runtime Web + Emscripten) — no GPU required |
 | Language | [TypeScript](https://www.typescriptlang.org/) |
@@ -182,7 +204,7 @@ Only **feature-extraction** models work here. Text-generation models (Llama, Gem
 | `Xenova/all-mpnet-base-v2` | 85 MB | 768 | **Default** — best accuracy/size balance |
 | `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | 118 MB | 384 | Multilingual |
 | `Xenova/bge-small-en-v1.5` | 50 MB | 384 | BGE small, English |
-| `Xenova/bge-large-en-v1.5` | 250 MB | 384 | BGE large, highest accuracy |
+| `Xenova/bge-large-en-v1.5` | 250 MB | 1024 | BGE large, highest accuracy |
 
 Pass the model ID via the `model` prop:
 
@@ -347,8 +369,6 @@ The `searchMode` prop controls how results are ranked. Switch modes based on dat
 | `server` | Millions | Vector DB required | ~50–150 ms (network) |
 | `hnsw` | Up to ~100 k | None | ~5–20 ms after index loads |
 
-> **Privacy note:** With the default in-browser HuggingFace embedding, nothing leaves the device in `client` and `hnsw` modes. In `server` mode the query vector (not raw text) is sent to your server. If you use a server-side `embedFn`, the query text is sent to that embedding service regardless of search mode.
-
 ---
 
 ### `client` (default)
@@ -443,26 +463,98 @@ async def search(body: dict):
     return {"results": [r[0] for r in rows]}
 ```
 
-Pre-load the table once:
+Oracle 23ai supports both **HNSW** and **IVF** ANN indexes. Create one after loading your data (see the pre-loading section below for how to embed and insert rows):
+
+```sql
+-- HNSW index (recommended for read-heavy workloads)
+CREATE VECTOR INDEX idx_hnsw ON options_embeddings (embedding)
+  ORGANIZATION INMEMORY NEIGHBOR GRAPH
+  DISTANCE COSINE WITH TARGET ACCURACY 95;
+```
+
+Oracle also lets you combine vector search with regular SQL predicates in a single query — useful if your options have structured metadata (category, tenant, permissions, etc.).
+
+#### Pre-loading options: the model-matching requirement
+
+> **Critical:** the model used to embed your stored options must be identical to the model the component uses to embed queries. Vectors from different models live in incompatible vector spaces — comparing them produces meaningless results even if dimensions happen to match.
+
+The browser uses models from the `Xenova/` HuggingFace namespace, which are ONNX exports of standard `sentence-transformers` models — same weights, different runtime. To pre-embed options on the server you can use the Python `sentence-transformers` library with the corresponding model name, or call any API that serves the same underlying model.
+
+| `model` prop (browser) | Python `SentenceTransformer(...)` | Dims |
+|---|---|---|
+| `Xenova/all-mpnet-base-v2` (**default**) | `'all-mpnet-base-v2'` | 768 |
+| `Xenova/all-MiniLM-L6-v2` | `'all-MiniLM-L6-v2'` | 384 |
+| `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | `'paraphrase-multilingual-MiniLM-L12-v2'` | 384 |
+| `Xenova/bge-small-en-v1.5` | `'BAAI/bge-small-en-v1.5'` | 384 |
+| `Xenova/bge-large-en-v1.5` | `'BAAI/bge-large-en-v1.5'` | 1024 |
+| custom `embedFn` (Ollama, OpenAI, etc.) | use the same API + model your `embedFn` calls | varies |
+
+> **Pooling and normalization must also match.** The component always uses `pooling: 'mean'` and `normalize: true`. In Python, pass `normalize_embeddings=True` to `model.encode()` — this is already shown in the examples below.
+
+**When using the default HuggingFace model** (`Xenova/all-mpnet-base-v2`, 768 dims), pre-embed with Python `sentence-transformers` and load into your vector DB:
+
+_PostgreSQL + pgvector:_
 
 ```python
-# CREATE TABLE options_embeddings (label VARCHAR2(500), embedding VECTOR(384, FLOAT32));
-# CREATE VECTOR INDEX idx_hnsw ON options_embeddings (embedding)
-#   ORGANIZATION INMEMORY NEIGHBOR GRAPH
-#   DISTANCE COSINE WITH TARGET ACCURACY 95;
+from sentence_transformers import SentenceTransformer
+import psycopg2
 
+model = SentenceTransformer('all-mpnet-base-v2')
+labels = ['Option A', 'Option B', ...]
+embeddings = model.encode(labels, normalize_embeddings=True).tolist()
+
+conn = psycopg2.connect("postgresql://user:pass@localhost/mydb")
+cur = conn.cursor()
+# CREATE EXTENSION vector;
+# CREATE TABLE options_embeddings (label TEXT, embedding vector(768));
+cur.executemany(
+    "INSERT INTO options_embeddings (label, embedding) VALUES (%s, %s)",
+    [(label, embedding) for label, embedding in zip(labels, embeddings)],
+)
+conn.commit()
+```
+
+_Oracle Database 23ai (AI Vector Search):_
+
+```python
+from sentence_transformers import SentenceTransformer
+import oracledb, os
+
+model = SentenceTransformer('all-mpnet-base-v2')
+labels = ['Option A', 'Option B', ...]
+embeddings = model.encode(labels, normalize_embeddings=True).tolist()
+
+pool = oracledb.create_pool(user=os.environ["DB_USER"], password=os.environ["DB_PASSWORD"], dsn=os.environ["DB_DSN"])
+# CREATE TABLE options_embeddings (label VARCHAR2(500), embedding VECTOR(768, FLOAT32));
 with pool.acquire() as conn:
-    rows = [(label, "[" + ",".join(str(x) for x in vec) + "]")
-            for label, vec in zip(labels, embeddings)]
-    conn.executemany(
-        "INSERT INTO options_embeddings VALUES (:1, TO_VECTOR(:2))", rows
-    )
+    rows = [(label, "[" + ",".join(str(x) for x in vec) + "]") for label, vec in zip(labels, embeddings)]
+    conn.executemany("INSERT INTO options_embeddings VALUES (:1, TO_VECTOR(:2))", rows)
     conn.commit()
 ```
 
-Oracle 23ai supports both **HNSW** and **IVF** ANN indexes and lets you combine vector search with regular SQL predicates in a single query — useful if your options also have structured metadata (category, tenant, permissions, etc.).
+**When using a custom `embedFn`** (e.g. Ollama or OpenAI), use the same model to embed options before inserting. The DB insert is identical — only the embedding step changes:
 
-Pre-compute embeddings once using any sentence-transformer library (Python `sentence-transformers`, Node `@huggingface/transformers`, etc.) and upsert them into your vector database.
+```python
+# Ollama example — must use the same model as your client-side embedFn
+import requests, psycopg2
+
+def embed(text: str) -> list[float]:
+    res = requests.post('http://localhost:11434/api/embeddings',
+                        json={'model': 'nomic-embed-text', 'prompt': text})
+    return res.json()['embedding']  # 768 dims for nomic-embed-text
+
+labels = ['Option A', 'Option B', ...]
+embeddings = [embed(label) for label in labels]
+
+conn = psycopg2.connect("postgresql://user:pass@localhost/mydb")
+cur = conn.cursor()
+# CREATE TABLE options_embeddings (label TEXT, embedding vector(768));
+cur.executemany(
+    "INSERT INTO options_embeddings (label, embedding) VALUES (%s, %s)",
+    [(label, embedding) for label, embedding in zip(labels, embeddings)],
+)
+conn.commit()
+```
 
 **Best for:** very large datasets (millions of items), or when embeddings must stay server-side.
 
