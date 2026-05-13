@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -125,6 +125,69 @@ describe('VectorAutocomplete', () => {
       expect(screen.getByText('Best match')).toBeInTheDocument()
     }, { timeout: 1000 })
   }, 3000)
+
+  describe('server search mode', () => {
+    beforeEach(() => {
+      vi.stubGlobal('fetch', vi.fn())
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('does not display a search error when the server request is aborted', async () => {
+      vi.mocked(fetch).mockRejectedValue(
+        Object.assign(new Error('The user aborted a request.'), { name: 'AbortError' }),
+      )
+
+      const embedFn = vi.fn().mockResolvedValue([0.1, 0.2])
+      render(
+        <VectorAutocomplete
+          options={OPTIONS}
+          embedFn={embedFn}
+          searchMode={{ type: 'server', endpoint: 'https://api.example.com/search' }}
+        />,
+      )
+
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'fruit')
+
+      await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled(), { timeout: 1000 })
+      await new Promise((r) => setTimeout(r, 100))
+
+      expect(screen.queryByText(/search error/i)).not.toBeInTheDocument()
+    }, 3000)
+
+    it('aborts the previous in-flight request when a new search fires', async () => {
+      const capturedSignals: AbortSignal[] = []
+
+      vi.mocked(fetch).mockImplementation((_url: string, opts: RequestInit) => {
+        capturedSignals.push(opts.signal as AbortSignal)
+        return new Promise<Response>(() => {}) // never resolves — stays in-flight
+      })
+
+      const embedFn = vi.fn().mockResolvedValue([0.1, 0.2])
+      render(
+        <VectorAutocomplete
+          options={OPTIONS}
+          embedFn={embedFn}
+          searchMode={{ type: 'server', endpoint: 'https://api.example.com/search' }}
+        />,
+      )
+
+      const input = screen.getByRole('combobox')
+      await user.type(input, 'hel')
+
+      // Wait for the first debounce to fire and the first fetch to start
+      await waitFor(() => expect(capturedSignals.length).toBe(1), { timeout: 1000 })
+      expect(capturedSignals[0].aborted).toBe(false)
+
+      // Type more — triggers a second debounced search which should abort the first
+      await user.type(input, 'lo')
+      await waitFor(() => expect(capturedSignals.length).toBe(2), { timeout: 1000 })
+
+      expect(capturedSignals[0].aborted).toBe(true)
+    }, 5000)
+  })
 
   it('shows no-options text when all results are below threshold', async () => {
     const embedFn = vi.fn()

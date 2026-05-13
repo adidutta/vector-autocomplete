@@ -1,7 +1,7 @@
 /**
  * Basic client-mode search — the default.
  *
- * Everything runs in the browser: the 23 MB MiniLM-L6-v2 model is downloaded
+ * Everything runs in the browser: the 85 MB all-mpnet-base-v2 model is downloaded
  * once from HuggingFace, cached, and then used to embed both the query and
  * each option. Results are ranked by cosine similarity.
  *

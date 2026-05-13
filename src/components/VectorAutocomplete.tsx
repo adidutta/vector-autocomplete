@@ -89,6 +89,7 @@ export default function VectorAutocomplete({
   const [searchError, setSearchError] = useState<string | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const rankOptions = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -101,8 +102,10 @@ export default function VectorAutocomplete({
     setSearchError(null)
     try {
       if (searchMode.type === 'server') {
+        abortRef.current?.abort()
+        abortRef.current = new AbortController()
         const queryVec = await embedQuery(query)
-        const results = await serverSearch(queryVec, topK)
+        const results = await serverSearch(queryVec, topK, abortRef.current.signal)
         setFilteredOptions(results)
       } else if (searchMode.type === 'hnsw') {
         const queryVec = await embedQuery(query)
@@ -125,6 +128,7 @@ export default function VectorAutocomplete({
         setFilteredOptions(results)
       }
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return
       setSearchError((err as Error).message)
     } finally {
       setSearching(false)

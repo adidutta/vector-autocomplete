@@ -16,7 +16,7 @@ export type SearchMode =
       indexUrl?: string
       /** Required when indexUrl is provided — maps HNSW integer labels to display strings. */
       labels?: string[]
-      /** Vector dimension. Must match the embedding model. Defaults to 384 (MiniLM / MPNet). */
+      /** Vector dimension. Must match the embedding model. Defaults to 384 (MiniLM). MPNet is 768d — set dim accordingly. */
       dim?: number
       /** Upper bound on the number of elements in the index. Defaults to 200 000. */
       maxElements?: number

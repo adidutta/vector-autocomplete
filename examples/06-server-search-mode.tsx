@@ -42,22 +42,24 @@ export default function ServerSearchMode() {
  * server-side. The query text goes to your embedding service, the resulting
  * vector goes to your search endpoint, and the browser never runs a model.
  */
+// Defined outside the component so the reference is stable across renders.
+async function fullPipelineEmbedFn(text: string): Promise<number[]> {
+  // Replace with your embedding service
+  const res = await fetch('https://embed.example.com/embed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer TOKEN' },
+    body: JSON.stringify({ text }),
+  })
+  return (await res.json()).embedding as number[]
+}
+
 export function FullServerPipeline() {
-  // embedFn must be stable — define outside the component or in useCallback
   return (
     <VectorAutocomplete
       options={[]}
       label="Full server pipeline"
       topK={8}
-      embedFn={async (text) => {
-        // Replace with your embedding service
-        const res = await fetch('https://embed.example.com/embed', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer TOKEN' },
-          body: JSON.stringify({ text }),
-        })
-        return (await res.json()).embedding as number[]
-      }}
+      embedFn={fullPipelineEmbedFn}
       searchMode={{
         type: 'server',
         endpoint: 'https://search.example.com/search',

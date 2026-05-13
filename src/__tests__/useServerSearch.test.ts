@@ -26,6 +26,7 @@ describe('useServerSearch', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vector: [0.1, 0.2, 0.3], k: 5 }),
+      signal: undefined,
     })
     expect(results).toEqual(['apple', 'banana'])
   })
@@ -85,5 +86,34 @@ describe('useServerSearch', () => {
     const { result } = renderHook(() => useServerSearch('https://api.example.com/search'))
     const results = await result.current.search([1, 0], 10)
     expect(results).toEqual([])
+  })
+
+  it('forwards an AbortSignal to fetch when provided', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ results: [] }),
+    } as Response)
+
+    const controller = new AbortController()
+    const { result } = renderHook(() => useServerSearch('https://api.example.com/search'))
+    await result.current.search([0.1], 5, controller.signal)
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal }),
+    )
+  })
+
+  it('propagates AbortError when the signal fires', async () => {
+    vi.mocked(fetch).mockRejectedValue(
+      Object.assign(new Error('Aborted'), { name: 'AbortError' }),
+    )
+
+    const controller = new AbortController()
+    controller.abort()
+    const { result } = renderHook(() => useServerSearch('https://api.example.com/search'))
+    await expect(result.current.search([0.1], 5, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    })
   })
 })

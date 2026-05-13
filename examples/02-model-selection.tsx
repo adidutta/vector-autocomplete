@@ -9,7 +9,7 @@
  *   Xenova/all-mpnet-base-v2                      — 85 MB,  768d, default
  *   Xenova/paraphrase-multilingual-MiniLM-L12-v2  — 118 MB, 384d, 50+ languages
  *   Xenova/bge-small-en-v1.5                      — 50 MB,  384d, BGE small
- *   Xenova/bge-large-en-v1.5                      — 250 MB, 384d, highest accuracy
+ *   Xenova/bge-large-en-v1.5                      — 250 MB, 1024d, highest accuracy
  */
 
 import VectorAutocomplete from 'vector-autocomplete'
