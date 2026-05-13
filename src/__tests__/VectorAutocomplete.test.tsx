@@ -160,8 +160,8 @@ describe('VectorAutocomplete', () => {
     it('aborts the previous in-flight request when a new search fires', async () => {
       const capturedSignals: AbortSignal[] = []
 
-      vi.mocked(fetch).mockImplementation((_url: string, opts: RequestInit) => {
-        capturedSignals.push(opts.signal as AbortSignal)
+      vi.mocked(fetch).mockImplementation((_url: string | URL | Request, opts?: RequestInit) => {
+        capturedSignals.push(opts!.signal as AbortSignal)
         return new Promise<Response>(() => {}) // never resolves — stays in-flight
       })
 
