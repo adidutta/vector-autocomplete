@@ -36,11 +36,11 @@ Find your row and jump to the linked sections — **you can ignore everything el
 | Embedding | Search | Dataset | Infrastructure | Query latency | Read |
 |---|---|---|---|---|---|
 | In-browser (default) | `client` (default) | ≤ 5 k | None | ~10–50 ms | [Usage](#usage) — no extra config |
-| In-browser (default) | `hnsw` | ≤ 100 k | None | ~5–20 ms | [In-browser embedding](#in-browser-embedding-huggingface) · [`hnsw` mode](#hnsw--hnsw-web-worker) |
-| In-browser (default) | `server` | Millions | Vector DB | ~50–150 ms | [In-browser embedding](#in-browser-embedding-huggingface) · [`server` mode](#server--server-side-ann) |
+| In-browser (default) | `hnsw` | ≤ 100 k | None | ~5–20 ms | <ul><li>[In-browser embedding](#in-browser-embedding-huggingface)</li><li>[`hnsw` mode](#hnsw--hnsw-web-worker)</li></ul> |
+| In-browser (default) | `server` | Millions | Vector DB | ~50–150 ms | <ul><li>[In-browser embedding](#in-browser-embedding-huggingface)</li><li>[`server` mode](#server--server-side-ann)</li></ul> |
 | Server (`embedFn`) | `client` | ≤ 5 k | Embedding service | ~10–50 ms + embed RTT | [Server-side embedding](#server-side-embedding) |
-| Server (`embedFn`) | `hnsw` | ≤ 100 k | Embedding service | ~5–20 ms + embed RTT | [Server-side embedding](#server-side-embedding) · [`hnsw` mode](#hnsw--hnsw-web-worker) |
-| Server (`embedFn`) | `server` | Millions | Embedding service + Vector DB | ~50–150 ms | [Server-side embedding](#server-side-embedding) · [`server` mode](#server--server-side-ann) |
+| Server (`embedFn`) | `hnsw` | ≤ 100 k | Embedding service | ~5–20 ms + embed RTT | <ul><li>[Server-side embedding](#server-side-embedding)</li><li>[`hnsw` mode](#hnsw--hnsw-web-worker)</li></ul> |
+| Server (`embedFn`) | `server` | Millions | Embedding service + Vector DB | ~50–150 ms | <ul><li>[Server-side embedding](#server-side-embedding)</li><li>[`server` mode](#server--server-side-ann)</li></ul> |
 
 > **Privacy:** with default in-browser embedding, nothing leaves the device in `client` and `hnsw` modes. In `server` mode the query vector is sent to your server. With a custom `embedFn`, the query text is sent to your embedding service regardless of search mode.
 
